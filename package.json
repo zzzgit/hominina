@@ -1,0 +1,72 @@
+{
+  "name": "hominina",
+  "displayName": "hominina",
+  "description": "none",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "hominina.helloWorld",
+        "title": "hominina: test"
+      },
+      {
+        "command": "hominina.createFile",
+        "title": "hominina: createFile"
+      },
+      {
+        "command": "hominina.writeVersion",
+        "title": "hominina: writeVersion"
+      },
+      {
+        "command": "hominina.foo",
+        "title": "hominina: foo"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "hominina.helloWorld",
+        "key": "ctrl+k r",
+        "mac": "cmd+k r",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "hominina.createFile",
+        "key": "ctrl+k c",
+        "mac": "cmd+k c"
+      },
+      {
+        "command": "hominina.writeVersion",
+        "key": "ctrl+k v",
+        "mac": "cmd+k v",
+        "when": "editorTextFocus"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin-js": "^1.5.1",
+    "@types/mocha": "^10.0.6",
+    "@types/node": "20.10.6",
+    "@types/vscode": "^1.85.0",
+    "@vscode/test-cli": "^0.0.4",
+    "@vscode/test-electron": "^2.3.8",
+    "eslint": "^8.56.0",
+    "eslint-config-janus": "^2.0.0",
+    "eslint-plugin-array-func": "^4.0.0",
+    "eslint-plugin-promise": "^6.1.1",
+    "eslint-plugin-unicorn": "^50.0.1",
+    "typescript": "^5.3.3"
+  }
+}
