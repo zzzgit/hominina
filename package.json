@@ -1,6 +1,7 @@
 {
   "name": "hominina",
   "displayName": "hominina",
+  "publisher": "hottea",
   "description": "a git blame extension for vscode",
   "type": "commonjs",
   "version": "0.0.1",
