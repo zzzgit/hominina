@@ -1,0 +1,14 @@
+{
+	"compilerOptions": {
+		"module": "commonjs",
+		"target": "esnext",
+		"checkJs": true,
+		"lib": [
+			"esnext",
+			"esnext.promise",
+		]
+	},
+	"exclude": [
+		"node_modules"
+	]
+}

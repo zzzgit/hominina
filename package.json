@@ -1,0 +1,37 @@
+{
+  "name": "hominina",
+  "displayName": "hominina",
+  "description": "a git blame extension for vscode",
+  "type": "commonjs",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.93.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [],
+    "keybindings": []
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "pretest": "npm run lint",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@stylistic/eslint-plugin-js": "^2.8.0",
+    "eslint": "^9.10.0",
+    "eslint-config-janus": "^9.0.1",
+    "eslint-plugin-array-func": "^5.0.2",
+    "eslint-plugin-n": "^17.10.3",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-promise": "^7.1.0",
+    "eslint-plugin-security": "^3.0.1",
+    "eslint-plugin-unicorn": "^55.0.0"
+  }
+}
