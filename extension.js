@@ -64,11 +64,23 @@ const showDecoration = async(lineNumber)=> {
 	})
 	// seperate the logic of hovoring
 	const regex = /@@.*@@\n(.*)/s
-	const match = diffInfo.match(regex)
-	const diff = match[1].replace(/\n/g, '  \n')
+	const diffs = diffInfo.match(regex)[1].split('\n')
+	const md = new vscode.MarkdownString()
+	md.supportHtml = true
+	md.supportThemeIcons = true
+	diffs.forEach((line)=> {
+		if(line.startsWith('+')){
+			md.appendMarkdown(` \n${line}`)
+			// md.appendMarkdown('<span style="color: red">green</span>')
+		}else if(line.startsWith('-')){
+			md.appendMarkdown(` \n${line}`)
+		}
+		md.appendText(` \n${line}`)
+	})
+
 	const option = {
 		range: new vscode.Range(lineNumber, maxSmallIntegerV8, lineNumber, maxSmallIntegerV8),
-		hoverMessage: new vscode.MarkdownString(`**Bold text**\n\n${diff}\n\n[Link to Google](https://www.google.com)`),
+		hoverMessage: md,
 	}
 	editor.setDecorations(decorationType, [option])
 	lastLine = lineNumber
