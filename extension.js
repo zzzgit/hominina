@@ -70,10 +70,10 @@ const showDecoration = async(lineNumber)=> {
 	md.supportThemeIcons = true
 	diffs.forEach((line)=> {
 		if(line.startsWith('+')){
-			md.appendMarkdown(` \n${line}`)
+			md.appendMarkdown(` \n⊕${line}`)
 			// md.appendMarkdown('<span style="color: red">green</span>')
 		}else if(line.startsWith('-')){
-			md.appendMarkdown(` \n${line}`)
+			md.appendMarkdown(` \n⊖${line}`)
 		}
 		md.appendText(` \n${line}`)
 	})
