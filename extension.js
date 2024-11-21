@@ -37,15 +37,21 @@ function activate(context){
 	})
 	context.subscriptions.push(disposableSelectionChange)
 }
+let blamess,
+	commits
 const showDecoration = async(lineNumber)=> {
 	// 可以在顶级声明吗？
 	const editor = vscode.window.activeTextEditor
 	const document = editor.document.uri.fsPath
-	const blame = await utils.getBlameOfLine(document, workspace.workspaceFolders[0].uri.fsPath, lineNumber + 1)
+	const blame = await utils.getBlameOfFile(document, workspace.workspaceFolders[0].uri.fsPath)
+	blamess = blame.result
+	commits = blame.commits
+	const hash = blamess[lineNumber + 1].hash
+	const info = commits[hash]
 	const diffInfo = await utils.getDiff(document, workspace.workspaceFolders[0].uri.fsPath, lineNumber + 1)
 	const decorationType = vscode.window.createTextEditorDecorationType({
 		after: {
-			contentText: `${blame.author}, ${blame.date}`,
+			contentText: `${info.author}, ${info.authorTime}`,
 			margin: '0 0 0 3em',
 			textDecoration: 'none',
 		},
