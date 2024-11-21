@@ -1,6 +1,5 @@
 import js from 'eslint-config-janus/js.js'
 import node from 'eslint-config-janus/node.js'
-import stylisticJs from '@stylistic/eslint-plugin-js'
 
 export default [
 	...js,
@@ -13,9 +12,6 @@ export default [
 		},
 	},
 	{
-		plugins: {
-			'@stylistic/js': stylisticJs,
-		},
 		languageOptions: {
 			globals: {
 				vscode: 'readonly',
