@@ -28,8 +28,7 @@ export default [
 			},
 		},
 		rules: {
-			'no-undef': 2,
-
+			'require-atomic-updates': [2, { allowProperties: true }],
 		},
 	},
 ]
