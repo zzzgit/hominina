@@ -1,17 +1,36 @@
 const vscode = require('vscode')
 const utils = require('./src/utils')
+// import * as vscode from 'vscode'
+// import * as utils from './src/utils'
+
 const DecorationRangeBehavior = vscode.DecorationRangeBehavior
 const workspace = vscode.workspace
+const fileInfos = {}
 const maxSmallIntegerV8 = 2 ** 30 - 1
 const delayMilli = 500
-let lastLine = -1
-let lastDecor
+const uncommittedHash = '0000000000000000000000000000000000000000'
 let lastDelayed = { reject: ()=> {} }
+let lastLine = -1
+let file = ''
+let	lastDecor,
+	rootPath,
+	author
+let blames,
+	commits
 
+const fetchWorkspaceInfo = async(workspacePath)=> {
+	// 两个合并成一个
+	author = await utils.getAuthor()
+	rootPath = await utils.getRepoRoot(workspacePath)
+}
 /**
  * @param {vscode.ExtensionContext} context
  */
-function activate(context){
+async function activate(context){
+	// 多个工作区怎么办？
+	const workspacePath = workspace.workspaceFolders[0].uri.fsPath
+	await fetchWorkspaceInfo(workspacePath)
+
 	const emitter = new vscode.EventEmitter()
 	// how to guarantee that it's the same editor?
 	const disposableLineChange = emitter.event((lineNumber)=> {
@@ -21,8 +40,18 @@ function activate(context){
 		lastDelayed = delayed
 		delayed.promise.then(()=> showDecoration(lineNumber)).catch((e)=> { console.log(2222, e) })
 	})
-
 	context.subscriptions.push(disposableLineChange)
+
+	const disposableEditorChange = vscode.window.onDidChangeActiveTextEditor((editor)=> {
+		if (!editor){
+			return null
+		}
+		file = editor.document.uri.fsPath
+		const scheme = editor.document.uri.scheme
+		console.log('scheme:', scheme, editor.document.uri.fsPath)
+		fetchFileInfo(file)
+	})
+	context.subscriptions.push(disposableEditorChange)
 
 	const disposableSelectionChange = vscode.window.onDidChangeTextEditorSelection(async(_event)=> {
 		const editor = vscode.window.activeTextEditor
@@ -37,21 +66,39 @@ function activate(context){
 	})
 	context.subscriptions.push(disposableSelectionChange)
 }
-let blamess,
-	commits
+
+const fetchFileInfo = async(file)=> {
+	if(!fileInfos[file]){
+		const isTracked = await utils.checkTracked(file, rootPath)
+		fileInfos[file] = { isTracked }
+	}
+	return fileInfos[file]
+}
+
 const showDecoration = async(lineNumber)=> {
 	// 可以在顶级声明吗？
 	const editor = vscode.window.activeTextEditor
 	const document = editor.document.uri.fsPath
-	const blame = await utils.getBlameOfFile(document, workspace.workspaceFolders[0].uri.fsPath)
-	blamess = blame.result
+	const blame = await utils.getBlameOfFile(document, rootPath)
+	blames = blame.result
 	commits = blame.commits
-	const hash = blamess[lineNumber + 1].hash
-	const info = commits[hash]
-	const diffInfo = await utils.getDiff(document, workspace.workspaceFolders[0].uri.fsPath, lineNumber + 1)
+	if(lineNumber + 1 >= blames.length){
+		return null
+	}
+	// 1 based
+	const hash = blames[lineNumber + 1].hash
+	const isUncommitted = hash == uncommittedHash
+	const uncommittedInfo = {
+		author: 'You', comment: 'Uncommitted changes', authorTime: '',
+	}
+	const info = isUncommitted ? uncommittedInfo : commits[hash]
+	if(info.author == author.name){
+		info.author = 'You'
+	}
+	const diffInfo = await utils.getDiff(document, rootPath, lineNumber + 1)
 	const decorationType = vscode.window.createTextEditorDecorationType({
 		after: {
-			contentText: `${info.author}, ${info.authorTime}`,
+			contentText: `${info.author}, ${info.authorTime}	•	${info.comment} / ${blames[lineNumber + 1].code}`,
 			margin: '0 0 0 3em',
 			textDecoration: 'none',
 		},

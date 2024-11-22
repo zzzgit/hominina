@@ -48,7 +48,31 @@ const getBlameOfLine = async(filePath, repository, lineNumber)=> {
 	return exec(cmd).then(({ stdout })=> _parseBlame(stdout))
 }
 
+const getCommitsInfo = async(filePath, repository)=> {
+	const commits = {}
+	const delimiter = '||'
+	const cmd = `git -C ${repository} log --pretty=format:"%H${delimiter}%an${delimiter}%ae${delimiter}%ar${delimiter}%cn${delimiter}%ce${delimiter}%cr${delimiter}%s" --follow -- ${filePath}`
+	return exec(cmd).then(({ stdout })=> {
+		const lines = stdout.split('\n')
+		lines.forEach((line)=> {
+			const parts = line.split(delimiter)
+			const hash = parts[0]
+			commits[hash] = {
+				author: parts[1],
+				authorMail: parts[2],
+				authorTime: parts[3],
+				committer: parts[4],
+				committerMail: parts[5],
+				committerTime: parts[6],
+				comment: parts[7],
+			}
+		})
+		return commits
+	})
+}
+
 const getBlameOfFile = async(filePath, repository)=> {
+	const commits = await getCommitsInfo(filePath, repository)
 	const cmd = `git -C ${repository} blame --porcelain ${filePath}`
 	return exec(cmd).then(({ stdout })=> {
 		const lines = stdout.split('\n')
@@ -64,10 +88,9 @@ const getBlameOfFile = async(filePath, repository)=> {
 				section.push(line)
 			}
 		})
-		const commits = {}
 		const result = []
 		sections.forEach((section)=> {
-			_parseSection(section, { commits, result })
+			_parseSection(section, result)
 		})
 		return { commits, result }
 	})
@@ -78,75 +101,17 @@ const _parseHashLine = (hashLine)=> {
 	const lineNum = parts[2]
 	return { hash, lineNum }
 }
-const _parseSection = (section, { commits, result })=> {
+const _parseSection = (section, result)=> {
 	const hashLine = section[0]
 	const { hash, lineNum } = _parseHashLine(hashLine)
-	// 实际上大于2就行了，但是末行可能不准确，编辑器加了一行
-	const isWithCommitMessage = section.length > 5
-	if (isWithCommitMessage){
-		const obj = {}
-		for (let i = 1; i < section.length; i++){
-			const line = section[i]
-			const segment = line.split(' ')
-			switch (segment[0]){
-			case 'author':
-				obj.author = segment[1]
-				break
-			case 'author-mail':
-				obj.authorMail = segment[1]
-				break
-			case 'author-time':
-				obj.authorTime = +segment[1]
-				break
-			case 'author-tz':
-				obj.authorTz = segment[1]
-				break
-			case 'committer':
-				obj.committer = segment[1]
-				break
-			case 'committer-mail':
-				obj.committerMail = segment[1]
-				break
-			case 'committer-time':
-				obj.committerTime = +segment[1]
-				break
-			case 'committer-tz':
-				obj.committerTz = segment[1]
-				break
-			case 'summary':
-				obj.comment = line.substring(8)
-				break
-
-			default:
-				break
-			}
-		}
-		commits[hash] = obj
-		const item = {
-			hash,
-			// lineNum,
-			code: section[section.length - 1].slice(1),
-		}
-		result[lineNum] = item
-	}else{
-		const item = {
-			hash,
-			code: section[1].slice(1),
-			// lineNum,
-		}
-		result[lineNum] = item
+	// const isWithCommitMessage = section.length > 5
+	const code = section[section.length - 1].slice(1)
+	const item = {
+		hash,
+		code,
+		// lineNum,
 	}
-	_parseCommit(hash, section, commits)
-}
-const _parseCommit = (hash, section, commits)=> {
-	if (!commits[hash]){
-		commits[hash] = {}
-	}
-	if (Object.keys(commits[hash]).length === 0){
-		if (section.length > 2){
-			commits[hash].message = section[2]
-		}
-	}
+	result[lineNum] = item
 }
 const _startsWithGitHash = (line)=> {
 	const gitHashRegex = /^[a-f0-9]{40}/
@@ -172,10 +137,32 @@ const getDiff = async(filePath, repository, lineNumber)=> {
 	return exec(cmd).then(({ stdout })=> stdout)
 }
 
+const checkTracked = async(filePath, repository)=> {
+	const cmd = `git -C ${repository} ls-files --error-unmatch ${filePath}`
+	return exec(cmd).then(()=> true).catch(()=> false)
+}
+const getRepoRoot = async(workspacePath)=> {
+	const cmd = `git -C ${workspacePath} rev-parse --show-toplevel`
+	return exec(cmd).then(({ stdout })=> stdout.trim())
+}
+const getAuthor = ()=> {
+	const cmd = 'git config --get-regex ^user\\.'
+	return exec(cmd).then(({ stdout })=> {
+		let lines = stdout.split('\n')
+		lines = lines.filter(line=> line)
+		const name = lines[0].split(' ')[1]
+		const email = lines[1].split(' ')[1]
+		return { name, email }
+	})
+}
+
 module.exports = {
 	getDiff,
 	getBlameOfLine,
 	getBlameOfFile,
+	checkTracked,
 	delay,
 	counter,
+	getAuthor,
+	getRepoRoot,
 }
