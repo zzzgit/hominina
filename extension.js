@@ -14,14 +14,21 @@ let lastLine = -1
 let file = ''
 let	lastDecor,
 	rootPath,
+	initialCommit,
 	author
 let blames,
 	commits
 
 const fetchWorkspaceInfo = async(workspacePath)=> {
-	// 两个合并成一个
-	author = await utils.getAuthor()
 	rootPath = await utils.getRepoRoot(workspacePath)
+	Promise.all([utils.getAuthor(), utils.getInital(rootPath)]).then((values)=> {
+		author = values[0]
+		initialCommit = values[1]
+		// console.log('root:', rootPath, initialCommit)
+		return null
+	}).catch((e)=> {
+		console.error('error:', e)
+	})
 }
 /**
  * @param {vscode.ExtensionContext} context
@@ -34,6 +41,7 @@ async function activate(context){
 	const emitter = new vscode.EventEmitter()
 	// how to guarantee that it's the same editor?
 	const disposableLineChange = emitter.event((lineNumber)=> {
+		// console.error('优先级:', 1111111)
 		hideDecoration()
 		const delayed = utils.delay(delayMilli)
 		lastDelayed.reject()
@@ -49,7 +57,8 @@ async function activate(context){
 		file = editor.document.uri.fsPath
 		const scheme = editor.document.uri.scheme
 		console.log('scheme:', scheme, editor.document.uri.fsPath)
-		fetchFileInfo(file)
+		const obj = fetchFileInfo(file)
+		console.log('obj:', obj)
 	})
 	context.subscriptions.push(disposableEditorChange)
 
@@ -79,14 +88,14 @@ const showDecoration = async(lineNumber)=> {
 	// 可以在顶级声明吗？
 	const editor = vscode.window.activeTextEditor
 	const document = editor.document.uri.fsPath
-	const blame = await utils.getBlameOfFile(document, rootPath)
-	blames = blame.result
-	commits = blame.commits
+	const blameResult = await utils.getBlameOfFile(document, rootPath)
+	blames = blameResult.result
+	commits = blameResult.commits
 	if(lineNumber + 1 >= blames.length){
 		return null
 	}
 	// 1 based
-	const hash = blames[lineNumber + 1].hash
+	const { hash } = blames[lineNumber + 1]
 	const isUncommitted = hash == uncommittedHash
 	const uncommittedInfo = {
 		author: 'You', comment: 'Uncommitted changes', authorTime: '',
@@ -95,10 +104,11 @@ const showDecoration = async(lineNumber)=> {
 	if(info.author == author.name){
 		info.author = 'You'
 	}
-	const diffInfo = await utils.getDiff(document, rootPath, lineNumber + 1)
+	const diffInfo = await utils.getDiff(document, rootPath, lineNumber + 1, hash, info.prevHash, initialCommit)
+	// console.info('diffInfo:', diffInfo)
 	const decorationType = vscode.window.createTextEditorDecorationType({
 		after: {
-			contentText: `${info.author}, ${info.authorTime}	•	${info.comment} / ${blames[lineNumber + 1].code}`,
+			contentText: `${info.author}, ${info.authorTime}\t•\t${info.comment}`,
 			margin: '0 0 0 3em',
 			textDecoration: 'none',
 		},
@@ -116,21 +126,16 @@ const showDecoration = async(lineNumber)=> {
 		rangeBehavior: DecorationRangeBehavior.OpenOpen,
 	})
 	// seperate the logic of hovoring
-	const regex = /@@.*@@\n(.*)/s
-	const diffs = diffInfo.match(regex)[1].split('\n')
 	const md = new vscode.MarkdownString()
+	md.appendMarkdown(`${info.authorTime2822}\t•\t(${info.authorTime})\n\n`)
+	md.appendMarkdown(`<span style='color: var(--vscode-charts-green);'>${info.prevHash || ''}\t..\t${hash}</span>\n\n`)
+	// md.appendMarkdown(`[copy](${copyHash})\n\n`)
+	// md.appendMarkdown('<br />')
+	md.appendCodeblock(`${diffInfo}`, 'diff')
+	// md.appendMarkdown(`${blames[lineNumber + 1].code}`)
 	md.supportHtml = true
 	md.supportThemeIcons = true
-	diffs.forEach((line)=> {
-		if(line.startsWith('+')){
-			md.appendMarkdown(` \n⊕${line}`)
-			// md.appendMarkdown('<span style="color: red">green</span>')
-		}else if(line.startsWith('-')){
-			md.appendMarkdown(` \n⊖${line}`)
-		}
-		md.appendText(` \n${line}`)
-	})
-
+	md.isTrusted = true
 	const option = {
 		range: new vscode.Range(lineNumber, maxSmallIntegerV8, lineNumber, maxSmallIntegerV8),
 		hoverMessage: md,
@@ -146,7 +151,8 @@ const hideDecoration = ()=> {
 	}
 }
 function deactivate(){}
-
+// copy hash
+// const copyHash = vscode.Uri.parse(`command:editor.action.clipboardCopyAction?${encodeURIComponent(JSON.stringify([uncommittedHash]))}`)
 module.exports = {
 	activate,
 	deactivate,
