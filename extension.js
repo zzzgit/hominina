@@ -182,9 +182,9 @@ const showDecoration = async(lineNumber)=> {
 	})
 	// seperate the logic of hovoring
 	const md = new vscode.MarkdownString()
-	md.appendMarkdown(`${info.authorTime2822}\t•\t(${info.authorTime})\n\n`)
-	md.appendMarkdown(`<span style='color: var(--vscode-charts-green);'>-${info.prevHash || ''}</span>\n\n`)
-	md.appendMarkdown(`<span style='color: var(--vscode-charts-green);'>+${hash}</span>\n\n`)
+	md.appendMarkdown(`${info.authorTime2822}\t•\t(*${info.authorTime}*)\n\n`)
+	md.appendMarkdown(`<span style='color:#444;'>-${info.prevHash || ''}</span>\n\n`)
+	md.appendMarkdown(`<span style='color:#444;'>+${hash}</span>\n\n`)
 	// md.appendMarkdown(`[copy](${copyHash})\n\n`)
 	// md.appendMarkdown('<br />')
 	md.appendCodeblock(`${diffInfo}`, 'diff')
