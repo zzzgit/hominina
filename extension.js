@@ -51,6 +51,14 @@ async function activate(context){
 	})
 	context.subscriptions.push(disposableLineChange)
 
+	const disposableClear = vscode.commands.registerCommand('hominina.clearCache', ()=> {
+		hideDecoration()
+		Object.keys(fileInfos).forEach((key)=> {
+			delete fileInfos[key]
+		})
+	})
+	context.subscriptions.push(disposableClear)
+
 	const disposableSavedChange = vscode.workspace.onDidSaveTextDocument(async(document)=> {
 		if(document.isDirty){
 			return null

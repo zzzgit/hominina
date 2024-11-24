@@ -21,8 +21,23 @@
   ],
   "main": "./extension.js",
   "contributes": {
-    "commands": [],
-    "keybindings": []
+    "commands": [
+      {
+        "command": "hominina.clearCache",
+        "title": "Hominina: Clear Cache"
+      }
+    ],
+    "keybindings": [],
+    "configuration": {
+      "title": "hominina",
+      "properties": {
+        "hominina.hover.showCommitMessage": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show commit message after author and date."
+        }
+      }
+    }
   },
   "scripts": {
     "lint": "eslint .",
