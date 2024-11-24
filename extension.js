@@ -11,17 +11,16 @@ const delayMilli = 500
 const uncommittedHash = '0000000000000000000000000000000000000000'
 let lastDelayed = { reject: ()=> {} }
 let lastLine = -1
-let file = ''
 let	lastDecor,
-	rootPath,
+	repositoryPath,
 	initialCommit,
 	author
 let blames,
 	commits
 
 const fetchWorkspaceInfo = async(workspacePath)=> {
-	rootPath = await utils.getRepoRoot(workspacePath)
-	Promise.all([utils.getAuthor(), utils.getInital(rootPath)]).then((values)=> {
+	repositoryPath = await utils.getRepoRoot(workspacePath)
+	Promise.all([utils.getAuthor(), utils.getInital(repositoryPath)]).then((values)=> {
 		author = values[0]
 		initialCommit = values[1]
 		// console.log('root:', rootPath, initialCommit)
@@ -41,7 +40,6 @@ async function activate(context){
 	const emitter = new vscode.EventEmitter()
 	// how to guarantee that it's the same editor?
 	const disposableLineChange = emitter.event((lineNumber)=> {
-		// console.error('优先级:', 1111111)
 		hideDecoration()
 		const delayed = utils.delay(delayMilli)
 		lastDelayed.reject()
@@ -50,21 +48,30 @@ async function activate(context){
 	})
 	context.subscriptions.push(disposableLineChange)
 
+	const disposableSavedChange = vscode.workspace.onDidSaveTextDocument((document)=> {
+		if(document.isDirty){
+			return null
+		}
+		fetchFileInfo(document.uri.fsPath)
+	})
+	context.subscriptions.push(disposableSavedChange)
+
 	const disposableEditorChange = vscode.window.onDidChangeActiveTextEditor((editor)=> {
 		if (!editor){
 			return null
 		}
-		file = editor.document.uri.fsPath
 		const scheme = editor.document.uri.scheme
 		console.log('scheme:', scheme, editor.document.uri.fsPath)
-		const obj = fetchFileInfo(file)
-		console.log('obj:', obj)
+		fetchFileInfo(editor.document.uri.fsPath)
 	})
 	context.subscriptions.push(disposableEditorChange)
 
 	const disposableSelectionChange = vscode.window.onDidChangeTextEditorSelection(async(_event)=> {
 		const editor = vscode.window.activeTextEditor
 		if (!editor){
+			return null
+		}
+		if(!await determineTracked(editor.document)){
 			return null
 		}
 		const lineNumber = editor.selection.active.line
@@ -78,17 +85,31 @@ async function activate(context){
 
 const fetchFileInfo = async(file)=> {
 	if(!fileInfos[file]){
-		const isTracked = await utils.checkTracked(file, rootPath)
+		const isTracked = await utils.checkTracked(file, repositoryPath)
 		fileInfos[file] = { isTracked }
 	}
 	return fileInfos[file]
 }
 
+const determineTracked = async(document)=> {
+	if(document.isUntitled){
+		return false
+	}
+	const path = document.uri.fsPath
+	if(!repositoryPath || !path.startsWith(repositoryPath)){
+		return false
+	}
+	if(!fileInfos[path]){
+		const abc = await utils.checkTracked(path, repositoryPath)
+		fileInfos[path] = { isTracked: abc }
+	}
+	return fileInfos[path].isTracked
+}
+
 const showDecoration = async(lineNumber)=> {
-	// 可以在顶级声明吗？
 	const editor = vscode.window.activeTextEditor
 	const document = editor.document.uri.fsPath
-	const blameResult = await utils.getBlameOfFile(document, rootPath)
+	const blameResult = await utils.getBlameOfFile(document, repositoryPath)
 	blames = blameResult.result
 	commits = blameResult.commits
 	if(lineNumber + 1 >= blames.length){
@@ -104,7 +125,7 @@ const showDecoration = async(lineNumber)=> {
 	if(info.author == author.name){
 		info.author = 'You'
 	}
-	const diffInfo = await utils.getDiff(document, rootPath, lineNumber + 1, hash, info.prevHash, initialCommit)
+	const diffInfo = await utils.getDiff(document, repositoryPath, lineNumber + 1, hash, info.prevHash, initialCommit)
 	// console.info('diffInfo:', diffInfo)
 	const decorationType = vscode.window.createTextEditorDecorationType({
 		after: {
@@ -128,7 +149,8 @@ const showDecoration = async(lineNumber)=> {
 	// seperate the logic of hovoring
 	const md = new vscode.MarkdownString()
 	md.appendMarkdown(`${info.authorTime2822}\t•\t(${info.authorTime})\n\n`)
-	md.appendMarkdown(`<span style='color: var(--vscode-charts-green);'>${info.prevHash || ''}\t..\t${hash}</span>\n\n`)
+	md.appendMarkdown(`<span style='color: var(--vscode-charts-green);'>-${info.prevHash || ''}</span>\n\n`)
+	md.appendMarkdown(`<span style='color: var(--vscode-charts-green);'>+${hash}</span>\n\n`)
 	// md.appendMarkdown(`[copy](${copyHash})\n\n`)
 	// md.appendMarkdown('<br />')
 	md.appendCodeblock(`${diffInfo}`, 'diff')

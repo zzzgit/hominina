@@ -167,6 +167,7 @@ const checkTracked = async(filePath, repository)=> {
 	const cmd = `git -C ${repository} ls-files --error-unmatch ${filePath}`
 	return exec(cmd).then(()=> true).catch(()=> false)
 }
+
 const getRepoRoot = async(workspacePath)=> {
 	const cmd = `git -C ${workspacePath} rev-parse --show-toplevel`
 	return exec(cmd).then(({ stdout })=> stdout.trim())
