@@ -19,7 +19,7 @@ let	lastDecor,
 
 const fetchWorkspaceInfo = async(workspacePath)=> {
 	repositoryPath = await utils.getRepoRoot(workspacePath)
-	Promise.all([utils.getAuthor(), utils.getInital(repositoryPath)]).then((values)=> {
+	Promise.all([utils.getAuthor(repositoryPath), utils.getInital(repositoryPath)]).then((values)=> {
 		author = values[0]
 		initialCommit = values[1]
 		return null

@@ -5,57 +5,15 @@ const exec = promisify(cp.exec)
 const uncommittedHash = '0000000000000000000000000000000000000000'
 const emptyHash = '4b825dc642cb6eb9a060e54bf8d69288fbee4904'
 
-const _parseBlame = (str)=> {
-	const reg = /^(\^?\w{7,8}) \(([^)]+)\) (.*)/
-	const res = reg.exec(str)
-	if (!res){
-		console.log('res:', res)
-		return null
-	}
-	const hash = res[1]
-	const info = res[2]
-	const code = res[3]
-	let author,
-		date,
-		lineNumber
-	if(hash === '00000000'){
-		const reg2 = /Not Committed Yet (.+)\s+(\d+)/
-		const res2 = reg2.exec(info)
-		if (!res2){
-			return null
-		}
-		author = 'Not Committed Yet'
-		date = res2[1]
-		lineNumber = res2[2]
-	}else{
-		const reg2 = /(\w+) ([\da-zA-Z ]+) (\d+)/
-		const res2 = reg2.exec(info)
-		if (!res2){
-			return null
-		}
-		author = res2[1]
-		date = res2[2]
-		lineNumber = res2[3]
-	}
-	return {
-		hash,
-		code,
-		author,
-		date,
-		lineNumber,
-	}
-}
-
 const getBlameOfLine = async(filePath, repository, lineNumber)=> {
-	const cmd = `git -C ${repository} blame --date relative -L ${lineNumber},+1 ${filePath}`
-	return exec(cmd).then(({ stdout })=> _parseBlame(stdout))
+	return executeGit('blame', repository, `--date relative -L ${lineNumber},+1`, filePath)
 }
 
 const getCommitsInfo = async(filePath, repository)=> {
 	const commits = {}
 	const delimiter = '||'
-	const cmd = `git -C ${repository} log --pretty=format:"%H${delimiter}%an${delimiter}%ae${delimiter}%ar${delimiter}%aD${delimiter}%cn${delimiter}%ce${delimiter}%cr${delimiter}%cD${delimiter}%s" --follow -- ${filePath}`
-	return exec(cmd).then(({ stdout })=> {
+	const cmd = executeGit('log', repository, `--pretty=format:"%H${delimiter}%an${delimiter}%ae${delimiter}%ar${delimiter}%aD${delimiter}%cn${delimiter}%ce${delimiter}%cr${delimiter}%cD${delimiter}%s" --follow`, filePath)
+	return cmd.then(({ stdout })=> {
 		const lines = stdout.split('\n')
 		lines.forEach((line)=> {
 			const parts = line.split(delimiter)
@@ -78,8 +36,8 @@ const getCommitsInfo = async(filePath, repository)=> {
 
 const getBlameOfFile = async(filePath, repository)=> {
 	const commits = await getCommitsInfo(filePath, repository)
-	const cmd = `git -C ${repository} blame --root --porcelain ${filePath}`
-	return exec(cmd).then(({ stdout })=> {
+	const cmd = executeGit('blame', repository, '--root --porcelain', filePath)
+	return cmd.then(({ stdout })=> {
 		const lines = stdout.split('\n')
 		lines.pop()
 		const sections = []
@@ -125,7 +83,7 @@ const _parseSection = (section, result, commits)=> {
 	result[lineNum] = item
 }
 const getInital = (repository)=> {
-	return exec(`git -C ${repository} rev-list --max-parents=0 HEAD --`).then(({ stdout })=> stdout.trim())
+	return executeGit('rev-list', repository, '--max-parents=0 HEAD').then(({ stdout })=> stdout.trim())
 }
 const _startsWithGitHash = (line)=> {
 	const gitHashRegex = /^[a-f0-9]{40}/
@@ -159,29 +117,45 @@ const getDiff = async(filePath, repository, lineNumber, hash, prevHash, initialC
 		commitA = prevHash || hash + '^'
 	}
 	// const cmd = `git -C ${repository} log --oneline -L ${lineNumber},+1:'${filePath}' -n 1`
-	const cmd = `git -C ${repository} diff --no-ext-diff --minimal -U0 ${commitA} ${commitB} -- ${filePath}`
-	return exec(cmd).then(({ stdout })=> stdout)
+	const cmd = executeGit('diff', repository, `--no-ext-diff --minimal -U0 ${commitA} ${commitB}`, filePath)
+	return cmd.then(({ stdout })=> stdout)
 }
 
 const checkTracked = async(filePath, repository)=> {
-	const cmd = `git -C ${repository} ls-files --error-unmatch ${filePath}`
-	return exec(cmd).then(()=> true).catch(()=> false)
+	const cmd = executeGit('ls-files', repository, '--error-unmatch', filePath)
+	return cmd.then(()=> true).catch(()=> false)
 }
 
 const getRepoRoot = async(workspacePath)=> {
-	const cmd = `git -C ${workspacePath} rev-parse --show-toplevel`
-	return exec(cmd).then(({ stdout })=> stdout.trim())
+	const cmd = executeGit('rev-parse', workspacePath, '--show-toplevel')
+	return cmd.then(({ stdout })=> stdout.trim())
 }
 
-const getAuthor = ()=> {
-	const cmd = 'git config --get-regex ^user\\.'
-	return exec(cmd).then(({ stdout })=> {
+const getAuthor = (repository)=> {
+	const cmd = executeGit('config', repository, '--get-regex ^user\\.')
+	return cmd.then(({ stdout })=> {
 		let lines = stdout.split('\n')
 		lines = lines.filter(line=> line)
 		const name = lines[0].split(' ')[1]
 		const email = lines[1].split(' ')[1]
 		return { name, email }
 	})
+}
+
+const executeGit = async(cmd, repository, options, parameters)=> {
+	let str = 'git'
+	if(repository){
+		str += ` -C ${repository}`
+	}
+	str += ` ${cmd}`
+	if(options){
+		str += ` ${options}`
+	}
+	if(parameters){
+		str += ` -- ${parameters}`
+	}
+	console.log('[cmd]:', str)
+	return exec(str)
 }
 
 module.exports = {
