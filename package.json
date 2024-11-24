@@ -29,12 +29,12 @@
     ],
     "keybindings": [],
     "configuration": {
-      "title": "hominina",
+      "title": "hover",
       "properties": {
         "hominina.hover.showCommitMessage": {
           "type": "boolean",
           "default": true,
-          "description": "Show commit message after author and date."
+          "description": "Show commit message after the author and date."
         }
       }
     }

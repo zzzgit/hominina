@@ -31,6 +31,9 @@ const fetchWorkspaceInfo = async(workspacePath)=> {
  * @param {vscode.ExtensionContext} context
  */
 async function activate(context){
+	const config = vscode.workspace.getConfiguration('hominina')
+	const hoverConfig = config.get('hover')
+	console.log(222, hoverConfig.showCommitMessage)
 	if(workspace.workspaceFolders?.length > 1){
 		isMultiRoot = true
 	}
