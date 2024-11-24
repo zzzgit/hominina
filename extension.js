@@ -11,7 +11,7 @@ const delayMilli = 500
 const uncommittedHash = '0000000000000000000000000000000000000000'
 let lastDelayed = { reject: ()=> {} }
 let lastVisitedLine = -1
-// let isMultiRoot = false
+let isMultiRoot = false
 let	lastDecor,
 	repositoryPath,
 	initialCommit,
@@ -31,7 +31,12 @@ const fetchWorkspaceInfo = async(workspacePath)=> {
  * @param {vscode.ExtensionContext} context
  */
 async function activate(context){
-	// 多个工作区怎么办？
+	if(workspace.workspaceFolders?.length > 1){
+		isMultiRoot = true
+	}
+	if(isMultiRoot){
+		return null
+	}
 	const workspacePath = workspace.workspaceFolders[0].uri.fsPath
 	await fetchWorkspaceInfo(workspacePath)
 
