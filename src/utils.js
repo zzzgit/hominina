@@ -136,8 +136,8 @@ const getAuthor = (repository)=> {
 	return cmd.then(({ stdout })=> {
 		let lines = stdout.split('\n')
 		lines = lines.filter(line=> line)
-		const name = lines[0].split(' ')[1]
-		const email = lines[1].split(' ')[1]
+		const email = lines[0].split(' ')[1]
+		const name = lines[1].split(' ')[1]
 		return { name, email }
 	})
 }

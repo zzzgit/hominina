@@ -149,7 +149,7 @@ const showDecoration = async(lineNumber)=> {
 		author: 'You', comment: 'Uncommitted changes', authorTime: '',
 	}
 	const info = isUncommitted ? uncommittedInfo : commits[hash]
-	if(info.author == author.name){
+	if(info.author == author.name && info.authorMail == author.email){
 		info.author = 'You'
 	}
 	const diffInfo = await utils.getDiff(document, repositoryPath, lineNumber + 1, hash, info.prevHash, initialCommit)
