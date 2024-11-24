@@ -12,6 +12,7 @@ const uncommittedHash = '0000000000000000000000000000000000000000'
 let lastDelayed = { reject: ()=> {} }
 let lastVisitedLine = -1
 let isMultiRoot = false
+let config
 let	lastDecor,
 	repositoryPath,
 	initialCommit,
@@ -31,9 +32,7 @@ const fetchWorkspaceInfo = async(workspacePath)=> {
  * @param {vscode.ExtensionContext} context
  */
 async function activate(context){
-	const config = vscode.workspace.getConfiguration('hominina')
-	const hoverConfig = config.get('hover')
-	console.log(222, hoverConfig.showCommitMessage)
+	config = vscode.workspace.getConfiguration('hominina')
 	if(workspace.workspaceFolders?.length > 1){
 		isMultiRoot = true
 	}
@@ -163,10 +162,15 @@ const showDecoration = async(lineNumber)=> {
 	if(info.author == author.name && info.authorMail == author.email){
 		info.author = 'You'
 	}
+	const hoverConfig = config.get('hover')
+	let hoverMessage = `${info.author}, ${info.authorTime}`
+	if(hoverConfig.showCommitMessage){
+		hoverMessage += `\t•\t${info.comment}`
+	}
 	const diffInfo = await utils.getDiff(document, repositoryPath, lineNumber + 1, hash, info.prevHash, initialCommit)
 	const decorationType = vscode.window.createTextEditorDecorationType({
 		after: {
-			contentText: `${info.author}, ${info.authorTime}\t•\t${info.comment}`,
+			contentText: hoverMessage,
 			margin: '0 0 0 3em',
 			textDecoration: 'none',
 		},
