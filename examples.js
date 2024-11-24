@@ -56,7 +56,3 @@
 // editor.edit(editBuilder => {
 // 	editBuilder.replace(selection, reversed)
 // })
-
-// import { randomUUID } from 'crypto'
-
-// randomUUID
