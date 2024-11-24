@@ -25,7 +25,7 @@
       {
         "command": "hominina.clearCache",
         "title": "Hominina: Clear Cache",
-        "markdownDescription": "Clear caches for documents, such as `diffInfos` and `isTracked`."
+        "description": "Clear caches for documents, such as `diffInfos` and `isTracked`."
       }
     ],
     "keybindings": [],
