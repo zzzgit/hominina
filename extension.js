@@ -10,20 +10,18 @@ const maxSmallIntegerV8 = 2 ** 30 - 1
 const delayMilli = 500
 const uncommittedHash = '0000000000000000000000000000000000000000'
 let lastDelayed = { reject: ()=> {} }
-let lastLine = -1
+let lastVisitedLine = -1
+// let isMultiRoot = false
 let	lastDecor,
 	repositoryPath,
 	initialCommit,
 	author
-let blames,
-	commits
 
 const fetchWorkspaceInfo = async(workspacePath)=> {
 	repositoryPath = await utils.getRepoRoot(workspacePath)
 	Promise.all([utils.getAuthor(), utils.getInital(repositoryPath)]).then((values)=> {
 		author = values[0]
 		initialCommit = values[1]
-		// console.log('root:', rootPath, initialCommit)
 		return null
 	}).catch((e)=> {
 		console.error('error:', e)
@@ -48,21 +46,29 @@ async function activate(context){
 	})
 	context.subscriptions.push(disposableLineChange)
 
-	const disposableSavedChange = vscode.workspace.onDidSaveTextDocument((document)=> {
+	const disposableSavedChange = vscode.workspace.onDidSaveTextDocument(async(document)=> {
 		if(document.isDirty){
 			return null
 		}
-		fetchFileInfo(document.uri.fsPath)
+		const path = document.uri.fsPath
+		const isTracked = await fetchTrackedInfo(document)
+		if(!isTracked){
+			return null
+		}
+		updateBlameInfo(path, repositoryPath)
 	})
 	context.subscriptions.push(disposableSavedChange)
 
-	const disposableEditorChange = vscode.window.onDidChangeActiveTextEditor((editor)=> {
+	const disposableEditorChange = vscode.window.onDidChangeActiveTextEditor(async(editor)=> {
 		if (!editor){
 			return null
 		}
-		const scheme = editor.document.uri.scheme
-		console.log('scheme:', scheme, editor.document.uri.fsPath)
-		fetchFileInfo(editor.document.uri.fsPath)
+		const path = editor.document.uri.fsPath
+		const isTracked = await fetchTrackedInfo(editor.document)
+		if(!isTracked){
+			return null
+		}
+		fetchBlameInfo(path, repositoryPath)
 	})
 	context.subscriptions.push(disposableEditorChange)
 
@@ -71,11 +77,11 @@ async function activate(context){
 		if (!editor){
 			return null
 		}
-		if(!await determineTracked(editor.document)){
+		if(!await fetchTrackedInfo(editor.document)){
 			return null
 		}
 		const lineNumber = editor.selection.active.line
-		if(lastLine === lineNumber){
+		if(lastVisitedLine === lineNumber){
 			return null
 		}
 		emitter.fire(lineNumber)
@@ -83,35 +89,51 @@ async function activate(context){
 	context.subscriptions.push(disposableSelectionChange)
 }
 
-const fetchFileInfo = async(file)=> {
+const updateTrackedInfo = async(document)=> {
+	const file = document.uri.fsPath
 	if(!fileInfos[file]){
-		const isTracked = await utils.checkTracked(file, repositoryPath)
-		fileInfos[file] = { isTracked }
+		fileInfos[file] = { }
 	}
-	return fileInfos[file]
-}
-
-const determineTracked = async(document)=> {
 	if(document.isUntitled){
-		return false
+		fileInfos[file].isTracked = false
+		return null
 	}
 	const path = document.uri.fsPath
 	if(!repositoryPath || !path.startsWith(repositoryPath)){
-		return false
+		fileInfos[file].isTracked = false
+		return null
 	}
-	if(!fileInfos[path]){
-		const abc = await utils.checkTracked(path, repositoryPath)
-		fileInfos[path] = { isTracked: abc }
+	const isTracked = await utils.checkTracked(file, repositoryPath)
+	fileInfos[file].isTracked = isTracked
+}
+const fetchTrackedInfo = async(document)=> {
+	const file = document.uri.fsPath
+	if(!fileInfos[file] || fileInfos[file].isTracked === undefined){
+		await updateTrackedInfo(document)
 	}
-	return fileInfos[path].isTracked
+	return fileInfos[file].isTracked
+}
+
+const updateBlameInfo = async(file, repoPath)=> {
+	if(!fileInfos[file]){
+		fileInfos[file] = { }
+	}
+	if(fileInfos[file].blameInfo === undefined){
+		const blameResult = await utils.getBlameOfFile(file, repoPath)
+		fileInfos[file].blameInfo = blameResult
+	}
+}
+const fetchBlameInfo = async(file, repoPath)=> {
+	if(!fileInfos[file] || fileInfos[file].blameInfo === undefined){
+		await updateBlameInfo(file, repoPath)
+	}
+	return fileInfos[file].blameInfo
 }
 
 const showDecoration = async(lineNumber)=> {
 	const editor = vscode.window.activeTextEditor
 	const document = editor.document.uri.fsPath
-	const blameResult = await utils.getBlameOfFile(document, repositoryPath)
-	blames = blameResult.result
-	commits = blameResult.commits
+	const { commits, result: blames } = await fetchBlameInfo(document, repositoryPath)
 	if(lineNumber + 1 >= blames.length){
 		return null
 	}
@@ -126,7 +148,6 @@ const showDecoration = async(lineNumber)=> {
 		info.author = 'You'
 	}
 	const diffInfo = await utils.getDiff(document, repositoryPath, lineNumber + 1, hash, info.prevHash, initialCommit)
-	// console.info('diffInfo:', diffInfo)
 	const decorationType = vscode.window.createTextEditorDecorationType({
 		after: {
 			contentText: `${info.author}, ${info.authorTime}\t•\t${info.comment}`,
@@ -163,7 +184,7 @@ const showDecoration = async(lineNumber)=> {
 		hoverMessage: md,
 	}
 	editor.setDecorations(decorationType, [option])
-	lastLine = lineNumber
+	lastVisitedLine = lineNumber
 	lastDecor = decorationType
 }
 const hideDecoration = ()=> {
